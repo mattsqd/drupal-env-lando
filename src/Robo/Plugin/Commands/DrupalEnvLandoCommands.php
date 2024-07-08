@@ -15,7 +15,7 @@ class DrupalEnvLandoCommands extends DrupalEnvCommandsBase
     /**
      * {@inheritdoc}
      */
-    protected string $package_name = 'mpbixal/drupal-env-lando';
+    protected string $package_name = 'mattsqd/drupal-env-lando';
 
     /**
      * Update the environment so that the scaffolding can happen, and run it.

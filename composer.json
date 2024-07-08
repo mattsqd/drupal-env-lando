@@ -1,12 +1,12 @@
 {
-    "name": "mpbixal/drupal-env-lando",
+    "name": "mattsqd/drupal-env-lando",
     "description": "Use Lando with the Drupal Env project.",
     "minimum-stability": "stable",
     "license": "GPL-2.0-or-later",
     "authors": [
         {
-            "name": "mpbixal",
-            "email": "121190622+mpbixal@users.noreply.github.com"
+            "name": "mattsqd",
+            "email": "mattsqd@users.noreply.github.com"
         }
     ],
     "autoload": {
@@ -19,7 +19,7 @@
         "cocur/slugify": "^4.0.0",
         "consolidation/robo": "^3.0.9 || ^4.0.1",
         "drupal/core-composer-scaffold": "^10.0",
-        "mpbixal/drupal-env": "dev-main",
+        "mattsqd/drupal-env": "dev-main",
         "php": ">=8.0.17"
     },
     "config": {

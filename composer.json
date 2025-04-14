@@ -16,18 +16,15 @@
     },
     "type": "robo-tasks",
     "require": {
+        "php": ">=8.2",
         "cocur/slugify": "^4.0.0",
-        "consolidation/robo": "^3.0.9 || ^4.0.1",
-        "drupal/core-composer-scaffold": "^10.0",
-        "mattsqd/drupal-env": "dev-main",
-        "php": ">=8.0.17"
+        "consolidation/robo": "^3.0 || ^4.0 || ^5.0",
+        "drupal/core-composer-scaffold": "^10.0 || ^11.0",
+        "mattsqd/drupal-env": "dev-main"
     },
     "config": {
         "optimize-autoloader": true,
         "sort-packages": true,
-        "platform": {
-            "php": "8.0.17"
-        },
         "allow-plugins": {
             "drupal/core-composer-scaffold": false
         }

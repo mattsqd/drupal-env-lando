@@ -1370,7 +1370,7 @@ class LandoCommands extends CommonCommands
                     'additional_config' => [
                         'build' => ['./orch/build_node.sh'],
                         'scanner' => false,
-                        'gulp-cli' => 'latest',
+                        'globals' => ['gulp-cli' => 'latest'],
                     ],
                 ],
             ],

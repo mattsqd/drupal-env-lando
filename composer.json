@@ -30,6 +30,11 @@
         }
     },
     "extra": {
+        "drupal-env": {
+            "file-mapping": {
+                "[project-root]/.gitignore": "scaffolding/gitignore-additions.txt"
+            }
+        },
         "drupal-scaffold": {
             "gitignore": false,
             "file-mapping": {
@@ -52,10 +57,6 @@
                     "mode": "replace",
                     "path": "scaffolding/Robo/LandoCommands.php",
                     "overwrite": true
-                },
-                "[project-root]/.gitignore": {
-                    "append": "scaffolding/gitignore-additions.txt",
-                    "force-append": true
                 }
             }
         }

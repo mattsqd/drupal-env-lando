@@ -3,6 +3,7 @@
 namespace DrupalEnvLando\Robo\Plugin\Commands;
 
 use DrupalEnv\Robo\Plugin\Commands\DrupalEnvCommandsBase;
+use Symfony\Component\Console\Style\SymfonyStyle;
 
 /**
  * Provide commands to handle installation tasks.
@@ -18,21 +19,21 @@ class DrupalEnvLandoCommands extends DrupalEnvCommandsBase
     protected string $package_name = 'mattsqd/drupal-env-lando';
 
     /**
-     * Update the environment so that the scaffolding can happen, and run it.
+     * This is the entry point to allow Drupal env and it's plugins to scaffold.
      *
-     * @command drupal-env-lando:scaffold
+     * Run this to kick off once.
+     *
+     * @command drupal-env-lando:enable-scaffold
      */
-    public function scaffold(string $package_name = ''): void
+    public function enableScaffoldCommand(SymfonyStyle $io): void
     {
-        // Only reason this method is redefined is so that it can be given
-        // a new @command name.
-        parent::scaffold($package_name);
+        $this->enableScaffolding($io);
     }
 
     /**
      * {@inheritdoc}
      */
-    protected function preScaffoldChanges(): void
+    protected function beforeEnableScaffolding(SymfonyStyle $io): void
     {
         // Must make sure we remove any previous .lando.yml file as our scripts only
         // modify and the existing stuff will stay and mess things up.
@@ -48,6 +49,20 @@ class DrupalEnvLandoCommands extends DrupalEnvCommandsBase
                 }
             }
         }
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public static function preScaffoldCommand(): array {
+        return [];
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public static function postScaffoldCommand(): array {
+        return [];
     }
 
 }

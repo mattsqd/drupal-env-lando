@@ -31,6 +31,9 @@
     },
     "extra": {
         "drupal-env": {
+            "environments": {
+                "lando": "DrupalEnvLando\\Environment\\LandoEnvironment"
+            },
             "file-mapping": {
                 "[project-root]/.gitignore": "scaffolding/gitignore-additions.txt"
             }
@@ -51,11 +54,6 @@
                 "[project-root]/lando-config/php.ini": {
                     "mode": "replace",
                     "path": "scaffolding/php_config/php.ini",
-                    "overwrite": true
-                },
-                "[project-root]/RoboEnv/Robo/Plugin/Commands/LandoCommands.php": {
-                    "mode": "replace",
-                    "path": "scaffolding/Robo/LandoCommands.php",
                     "overwrite": true
                 }
             }

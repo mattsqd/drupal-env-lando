@@ -1,17 +1,24 @@
 <?php
 
-namespace RoboEnv\Robo\Plugin\Commands;
+declare(strict_types=1);
+
+namespace DrupalEnvLando\Environment;
 
 use Cocur\Slugify\Slugify;
+use DrupalEnv\Environment\Environment;
+use DrupalEnv\Environment\Feature\SupportsDuplicate;
+use DrupalEnv\Environment\Feature\SupportsPersonalServices;
+use DrupalEnv\Environment\Feature\SupportsSolrConfig;
+use DrupalEnv\Environment\Feature\SupportsUrls;
+use DrupalEnv\Environment\Feature\SupportsXdebugAlwaysConnect;
+use DrupalEnv\Environment\Feature\SupportsXdebugOnByDefault;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\Yaml\Yaml;
 
 /**
- * Run orchestration tasks for Lando.
- *
- * @class RoboFile
+ * Lando local environment.
  */
-class LandoCommands extends CommonCommands
+class LandoEnvironment extends Environment implements SupportsXdebugOnByDefault, SupportsXdebugAlwaysConnect, SupportsDuplicate, SupportsSolrConfig, SupportsUrls, SupportsPersonalServices
 {
 
     /**
@@ -29,7 +36,7 @@ class LandoCommands extends CommonCommands
     protected string $lando_yml_path = '.lando.yml';
 
     /**
-     * The path to the .lando.yml.
+     * The path to the .lando.dist.yml.
      *
      * @var string
      */
@@ -46,7 +53,15 @@ class LandoCommands extends CommonCommands
     /**
      * {@inheritDoc}
      */
-    public static function composerCommand($inside = TRUE): string
+    public static function getLabel(): string
+    {
+        return 'Lando';
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public static function composerCommand(bool $inside = true): string
     {
         if ($inside) {
             return 'composer';
@@ -58,7 +73,7 @@ class LandoCommands extends CommonCommands
     /**
      * {@inheritDoc}
      */
-    public static function drushCommand($inside = TRUE): string
+    public static function drushCommand(bool $inside = true): string
     {
         if ($inside) {
             return 'drush';
@@ -70,7 +85,7 @@ class LandoCommands extends CommonCommands
     /**
      * {@inheritDoc}
      */
-    public static function execCommand($inside = TRUE): string
+    public static function execCommand(bool $inside = true): string
     {
         if ($inside) {
             return 'bash -c';
@@ -80,16 +95,9 @@ class LandoCommands extends CommonCommands
     }
 
     /**
-     * Toggles when Lando starts up, xdebug will now be on by default.
-     *
-     * When Xdebug is on and xdebug:always-connect has not set XDEBUG_SESSION=1,
-     * then you will have to do it manually like ?XDEBUG_SESSION=1 on a URL and
-     * ?XDEBUG_SESSION_STOP to stop it.
-     *
-     *
-     * @command lando:xdebug-toggle-on-by-default
+     * {@inheritDoc}
      */
-    public function xdebugToggleOnByDefault(): void
+    public function xdebugToggleOnByDefault(SymfonyStyle $io): void
     {
         $this->isInit();
         $yml_file = $this->getLandoLocalYml();
@@ -107,14 +115,7 @@ class LandoCommands extends CommonCommands
     }
 
     /**
-     * Toggles XDebug always starting a debug session without ?XDEBUG_SESSION=1.
-     *
-     * This is handy if you want to debug CLI or not have to worry about
-     * triggering Xdebug to connect.
-     *
-     * https://xdebug.org/docs/step_debug
-     *
-     * @command lando:xdebug-toggle-always-connect
+     * {@inheritDoc}
      */
     public function xdebugToggleAlwaysConnect(SymfonyStyle $io): void
     {
@@ -174,6 +175,14 @@ class LandoCommands extends CommonCommands
     }
 
     /**
+     * {@inheritDoc}
+     */
+    public function isSetUp(): bool
+    {
+        return $this->doesLandoFileExists(true);
+    }
+
+    /**
      * Requires lando file to exist.
      *
      * @param bool $return
@@ -189,13 +198,13 @@ class LandoCommands extends CommonCommands
             if ($return) {
                 return false;
             }
-            throw new \Exception('Lando file does not exist, please run lando-admin:setup-project instead.');
+            throw new \Exception('Lando file does not exist, please run denv-admin:local-setup instead.');
         }
         return true;
     }
 
     /**
-     * {@inheritDoc}
+     * Requires the Lando config to exist and have a project name.
      */
     protected function isInit(bool $return = false): bool
     {
@@ -207,7 +216,7 @@ class LandoCommands extends CommonCommands
             if ($return) {
                 return false;
             }
-            throw new \Exception("{$this->lando_yml_path} has not set project name yet, please run lando-admin:setup-project instead.");
+            throw new \Exception("{$this->lando_yml_path} has not set project name yet, please run denv-admin:local-setup instead.");
         }
         return true;
     }
@@ -235,7 +244,7 @@ class LandoCommands extends CommonCommands
      */
     protected function saveLandoYml(array|string $file_contents): bool
     {
-        $this->say("{$this->lando_yml_path} has been written. Please commit this file so that ./robo.sh lando:init can be run and the environment can be started by yourself and others. If the project has already been started, you will need to lando rebuild -y");
+        $this->say("{$this->lando_yml_path} has been written. Please commit this file so that ./robo.sh denv:local-init can be run and the environment can be started by yourself and others. If the project has already been started, you will need to lando rebuild -y");
         return $this->saveYml($this->lando_yml_path, $file_contents);
     }
 
@@ -264,51 +273,20 @@ class LandoCommands extends CommonCommands
     }
 
     /**
-     * Configure Lando so it can be started.
-     *
-     * * Creates the .lando.yml file
-     * * Set the project name
-     * * Set the PHP version
-     *
-     * @command lando-admin:init
+     * {@inheritDoc}
      */
-    public function landoAdminInit(SymfonyStyle $io): void
+    public function config(SymfonyStyle $io): void
     {
-        if ($this->doesLandoFileExists(true) && !$io->confirm("Lando is already set up, are you sure you want to update your {$this->lando_yml_path} file?", false)) {
-            $this->say('Cancelled.');
-            return;
-        }
-        $this->enterToContinue($io, 'Setting the project name. This can be run by itself later via `./robo.sh lando-admin:set-project-name`.');
-        // A project name must be set.
-        $this->_exec('vendor/bin/robo lando-admin:set-project-name')->stopOnFail();
-
-        $this->enterToContinue($io, 'Setting the recipe automatically to the most optimal. This can be run by itself later via `./robo.sh lando-admin:set-recipe`.');
-        $this->_exec('vendor/bin/robo lando-admin:set-recipe');
-
-        $this->enterToContinue($io, 'Setting required shared services. This can be run by itself later via `./robo.sh lando-admin:set-required-shared-services`.');
-        $this->_exec('vendor/bin/robo lando-admin:set-required-shared-services');
-
-        $this->enterToContinue($io, 'Lando will now start up and install Drupal so that the scripts can work on your current install.');
-        $this->_exec('vendor/bin/robo lando:init')->stopOnFail();
-
-        $this->enterToContinue($io, 'Setting optional shared services. This can be run by itself later via `./robo.sh lando-admin:set-optional-shared-services`.');
-        $this->_exec('vendor/bin/robo lando-admin:set-optional-shared-services');
-
-        // The following are shared commands that are not specific to Lando, but
-        // instead just need a local installed to work.
-        $this->enterToContinue($io, 'Taking action after a local has been installed. This can be run by itself later via `./robo.sh post-local-started`.');
-        $this->_exec('vendor/bin/robo common-admin:post-local-started');
-
+        $this->setProjectName($io);
+        $this->setRecipe();
     }
 
     /**
      * Set the lando project name.
      *
-     * @command lando-admin:set-project-name
-     *
      * @return void
      */
-    public function landoAdminSetProjectName(SymfonyStyle $io): void
+    protected function setProjectName(SymfonyStyle $io): void
     {
         $lando_yml = $this->getLandoYml();
         $project_name_set = false;
@@ -348,8 +326,9 @@ class LandoCommands extends CommonCommands
         $lando_yml['name'] = $project_name;
         $this->saveLandoYml($lando_yml);
         // This effects the URLs, update them.
-        $this->landoSetupUrls();
+        $this->updateUrls($io);
     }
+
 
     /**
      * Set the versions of services provided by default from the Recipe.
@@ -622,15 +601,10 @@ class LandoCommands extends CommonCommands
     }
 
     /**
-     * Change the version of services always included in the Drupal recipe.
-     *
-     * @command lando-admin:set-required-shared-services
-     *
-     * @return void
+     * {@inheritDoc}
      */
-    public function landoAdminSetRequiredSharedServices(SymfonyStyle $io): void
+    public function servicesRequired(SymfonyStyle $io): void
     {
-
         $this->isInit();
         $io->warning('Drupal requirements for Web Servers: https://www.drupal.org/docs/getting-started/system-requirements/web-server-requirements');
         $this->setRecipeService($io, false, 'web', 'via', 'web server');
@@ -641,13 +615,9 @@ class LandoCommands extends CommonCommands
     }
 
     /**
-     * Add or remove additional shared services.
-     *
-     * @command lando-admin:set-optional-shared-services
-     *
-     * @return void
+     * {@inheritDoc}
      */
-    public function landoAdminSetOptionalSharedServices(SymfonyStyle $io): void
+    public function servicesOptional(SymfonyStyle $io): void
     {
         $this->isInit();
         $this->isDrupalInstalled($io);
@@ -698,11 +668,9 @@ class LandoCommands extends CommonCommands
     /**
      * Sets the best recipe to use.
      *
-     * @command lando-admin:set-recipe
-     *
      * @return void
      */
-    public function landoAdminSetRecipe(): void
+    protected function setRecipe(): void
     {
         $this->isInit();
         $lando_yml = $this->getLandoYml();
@@ -735,50 +703,9 @@ class LandoCommands extends CommonCommands
     }
 
     /**
-     * Set the version of PHP to use.
-     *
-     * @return void
-     *
-     * @command lando-admin:set-php
-     *
-     * @replaceby lando-admin:set-required-shared-services.
+     * {@inheritDoc}
      */
-    /*public function landoAdminSetPhp(InputInterface $input, OutputInterface $output): void
-    {
-        $io = new SymfonyStyle($input, $output);
-        $lando_yml = $this->getLandoYml();
-        $lando_dist_yml = $this->getLandoDistYml();
-        $project_override_php_version = $lando_yml['config']['php'] ?? '';
-        $default_php_version = $lando_dist_yml['config']['php'];
-        $this->yell("The default (recommended) version of PHP is '$default_php_version'");
-        if ($project_override_php_version) {
-            if (!$this->confirm("Your Lando project is overriding the default version of PHP as '$project_override_php_version'. Would you like change it?")) {
-                $this->yell('Cancelled setting PHP version.');
-                return;
-            }
-        } else {
-            if (!$this->confirm("You are currently using this default value. Would you like to override it?")) {
-                $this->yell('Cancelled setting PHP version.');
-                return;
-            }
-        }
-        $chosen_php_version = $io->choice('What version of PHP would you like to use? (https://docs.lando.dev/plugins/php/)', ['8.0', '8.1', '8.2', 'Cancel'], $default_php_version);
-        if ($chosen_php_version === 'Cancel') {
-            $this->yell('Cancelled setting PHP version.');
-            return;
-        }
-        $lando_yml['config']['php'] = $chosen_php_version;
-        $this->saveLandoYml($lando_yml);
-    }*/
-
-    /**
-     * Copy the Solr config from Drupal to the Solr server config directory.
-     *
-     * @return void
-     *
-     * @command lando-admin:solr-config
-     */
-    public function landoAdminSolrConfig(SymfonyStyle $io): void
+    public function solrConfig(SymfonyStyle $io): void
     {
         $this->isInit();
         $this->isDrupalInstalled($io);
@@ -799,16 +726,24 @@ class LandoCommands extends CommonCommands
     }
 
     /**
+     * {@inheritDoc}
+     *
+     * Returns true on success, whether or not anything needed to change.
+     */
+    public function urls(SymfonyStyle $io): bool
+    {
+        $this->updateUrls($io);
+        return true;
+    }
+
+    /**
      * Configure the URLs to be used to access the environment.
      *
      * @return bool
      *   True if the URLs needed to be updated.
-     *
-     * @command lando:setup-urls
      */
-    public function landoSetupUrls(): bool
+    protected function updateUrls(SymfonyStyle $io): bool
     {
-
         $updated = false;
         $this->isInit();
         $lando_file_yml = $this->getLandoYml();
@@ -878,81 +813,33 @@ class LandoCommands extends CommonCommands
     }
 
     /**
-     * Ensure that an original install directory flag is set.
-     *
-     * This helps with the project copying functionality.
-     *
-     * @return string
+     * {@inheritDoc}
      */
-    protected function ensureOriginalInstallDirectorySet(): string
+    public function rebuild(SymfonyStyle $io): void
     {
-        $original_install_directory = $this->getConfig('flags.lando.originalInstallDirectory', '', true);
-        if (!strlen($original_install_directory)) {
-            $original_install_directory = basename(realpath(getcwd()));
-            $this->saveConfig('flags.lando.originalInstallDirectory', $original_install_directory, true);
-        }
-        return $original_install_directory;
+        $this->_exec('lando destroy -y')->stopOnFail();
+        $this->_exec('lando start')->stopOnFail();
     }
 
     /**
-     * Start Lando for the first time.
-     *
-     * * Ensures lando is installed.
-     * * Introduce to common shortcuts.
-     * * Set Lando to the default env.
-     * * Sets up the URLs.
-     * * Starts up Lando.
-     * * Installs Drupal.
-     * * Set personal services.
-     *
-     * @command lando:init
+     * {@inheritDoc}
      */
-    public function landoInit(SymfonyStyle $io): void
+    public function afterInit(SymfonyStyle $io): void
     {
-        if (!$this->landoReqs($io)) {
-            throw new \Exception('Unable to find all requirements. Please re-run this command after installing');
-        }
-        // This will now be the default local environment, as many can be
-        // installed. This allows the shortcuts like drush.sh to know which
-        // environment to use.
-        $this->setDefaultLocalEnvironment($this->getName());
-        // Introduce the common shortcuts so one knows how they work and to
-        // configure them.
-        $this->introduceCommonShortcuts($io);
-        // Check if the original directory has been captured yet, if not this
-        // is the original install. It does not matter if that directory
-        // does not exist anymore, it will not be copied from just it's name
-        // used in new copied projects.
-        // This allows the project to be copied from any descendant and use
-        // the original directory + suffix.
-        $this->ensureOriginalInstallDirectorySet();
-        $this->_exec('./robo.sh lando:setup-urls')->stopOnFail();
-        $this->_exec('lando destroy -y')->stopOnFail();
-        $this->_exec('lando start')->stopOnFail();
-        $this->_exec('lando si')->stopOnFail();
-        $io->success('Your environment has been started and Drupal site installed! Please use the one time login link to login.');
-        if ($io->confirm('Would you like to add any personal services (like PhpMyadmin, Mailhog, etc)? You can run this at any time using "./robo.sh lando:set-personal-services"', false)) {
-            $this->_exec('./robo.sh lando:set-personal-services');
+        if ($io->confirm('Would you like to add any personal services (like PhpMyadmin, Mailhog, etc)? You can run this at any time using "./robo.sh denv:local-personal-services"', false)) {
+            $this->runStep('denv:local-personal-services');
         }
         $io->info('How do I interact with my environment?');
         $io->info('Just like a normal Lando site (https://docs.lando.dev/cli/).');
         $io->info('What\'s different?');
         $io->info('You have two new lando "tooling" available: "lando si" will install a Drupal site from configuration. "lando su" will update an already installed site, like a normal production deployment without destroying the database.');
-        $io->info('You now have access to helper commands via ./robo.sh. These can be found under the "common", "xdebug", and "lando" namespaces. Those in the "common-admin" & "lando-admin" will effect files that are committed and therefore all developers. You also have access to the common shortcuts. You can find and reset their paths via "./robo.sh common:shortcuts-help".');
-        if ($io->confirm('Would you like to reset or learn more about shortcuts or reset their paths?', false)) {
-            $this->_exec('./robo.sh common:shortcuts-help');
-        }
-
-        // @todo: Ask to enable xdebug
-        // @todo: Ask to enable local settings (no cache / twig debug).
+        $io->info('You now have access to helper commands via ./robo.sh. These can be found under the "denv" and "denv-admin" namespaces. Those in "denv-admin" will effect files that are committed and therefore all developers. You also have access to the common shortcuts. You can find and reset their paths via "./robo.sh denv:shortcuts-help".');
     }
 
     /**
-     * Set optional personal (developer) services.
-     *
-     * @command lando:set-personal-services
+     * {@inheritDoc}
      */
-    public function landoSetPersonalServices(SymfonyStyle $io): void
+    public function personalServices(SymfonyStyle $io): void
     {
         $this->isInit();
         $rebuild_required = false;
@@ -964,24 +851,16 @@ class LandoCommands extends CommonCommands
         if (!$rebuild_required && false !== $status) {
             $rebuild_required = true;
         }
-        $status = $this->landoSetupUrls();
-        if (!$rebuild_required && false !== $status) {
+        if ($this->updateUrls($io) && !$rebuild_required) {
             $rebuild_required = true;
         }
         $this->rebuildRequired($io, $rebuild_required);
     }
 
     /**
-     * Display the requirements to use Lando.
-     *
-     * @command lando:reqs
-     *
-     * @return bool
-     *   True if all requirements are installed.
-     *
-     * @throws \Exception
+     * {@inheritDoc}
      */
-    public function landoReqs(SymfonyStyle $io): bool
+    public function reqs(SymfonyStyle $io): bool
     {
         $rows = [];
         $missing_software = FALSE;
@@ -999,27 +878,9 @@ class LandoCommands extends CommonCommands
     }
 
     /**
-     * Get a project folder name that is a sibling.
-     *
-     * @param string $sibling_project_folder_name
-     *
-     * @return string
+     * {@inheritDoc}
      */
-    protected function getSiblingAbsDir(string $sibling_project_folder_name): string
-    {
-        return realpath(getcwd() . DIRECTORY_SEPARATOR . '..') . DIRECTORY_SEPARATOR . $sibling_project_folder_name;
-    }
-
-    /**
-     * Create a duplicate local environment.
-     *
-     * * Copy all files to a new directory
-     * * Adds new URL if required
-     * * Cleans up IDE settings for new directory name.
-     *
-     * @command lando:duplicate-project
-     */
-    public function landoDuplicateProject(SymfonyStyle $io): void
+    public function duplicate(SymfonyStyle $io): void
     {
         $this->isInit();
         $lando_file_yml = $this->getLandoYml();
@@ -1111,7 +972,7 @@ class LandoCommands extends CommonCommands
         $this->saveLandoLocalYml($lando_local_yml);
 
         if ('b' === $option_choice) {
-            // Set this flag so that when landoSetupUrls is run, the correct
+            // Set this flag so that when urls() is run, the correct
             // choice is made.
             $this->saveConfig('flags.lando.setupUrlsUseLocalProjectName', 1, true);
             $this->say('New URLs have been set for all your services that had them.');
@@ -1120,7 +981,7 @@ class LandoCommands extends CommonCommands
             $this->saveConfig('flags.lando.setupUrlsUseLocalProjectName', 0, true);
             $this->say('Please stop the current environment before starting your new one.');
         }
-        $this->landoSetupUrls();
+        $this->updateUrls($io);
 
         $this->say("Finished creating your new environment. Please change to the directory ../$target_dir_name first. It is ready to be started.");
     }
